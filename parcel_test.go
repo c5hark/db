@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"testing"
 	"time"
@@ -45,7 +46,7 @@ func getTestParcel() Parcel {
 // TestAddGetDelete проверяет добавление, получение и удаление посылки
 func TestAddGetDelete(t *testing.T) {
 	// prepare
-	db, err := sql.Open("sqlite", ":memory")
+	db, err := sql.Open("sqlite", ":memory:?cache=shared")
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -60,25 +61,25 @@ func TestAddGetDelete(t *testing.T) {
 
 	// get
 	got, err := store.Get(id)
-	require.NoError(t, err)
-	require.Equal(t, parcel.Client, got.Client)
-	require.Equal(t, parcel.Status, got.Status)
-	require.Equal(t, parcel.Address, got.Address)
-	require.Equal(t, parcel.CreatedAt, got.CreatedAt)
+	assert.NoError(t, err)
+	assert.Equal(t, id, got.Number)
+	assert.Equal(t, parcel.Client, got.Client)
+	assert.Equal(t, parcel.Status, got.Status)
+	assert.Equal(t, parcel.Address, got.Address)
+	assert.Equal(t, parcel.CreatedAt, got.CreatedAt)
 
 	// delete
 	err = store.Delete(id)
 	require.NoError(t, err)
 
 	_, err = store.Get(id)
-	require.Error(t, err)
-	require.Equal(t, sql.ErrNoRows, err)
+	assert.ErrorIs(t, err, sql.ErrNoRows)
 }
 
 // TestSetAddress проверяет обновление адреса
 func TestSetAddress(t *testing.T) {
 	// prepare
-	db, err := sql.Open("sqlite", ":memory")
+	db, err := sql.Open("sqlite", ":memory:?cache=shared")
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -99,14 +100,14 @@ func TestSetAddress(t *testing.T) {
 
 	// check
 	got, err := store.Get(id)
-	require.NoError(t, err)
-	require.Equal(t, newAddress, got.Address)
+	assert.NoError(t, err)
+	assert.Equal(t, newAddress, got.Address)
 }
 
 // TestSetStatus проверяет обновление статуса
 func TestSetStatus(t *testing.T) {
 	// prepare
-	db, err := sql.Open("sqlite", ":memory")
+	db, err := sql.Open("sqlite", ":memory:?cache=shared")
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -128,14 +129,14 @@ func TestSetStatus(t *testing.T) {
 
 	// check
 	got, err := store.Get(id)
-	require.NoError(t, err)
-	require.Equal(t, newStatus, got.Status)
+	assert.NoError(t, err)
+	assert.Equal(t, newStatus, got.Status)
 }
 
 // TestGetByClient проверяет получение посылок по идентификатору клиента
 func TestGetByClient(t *testing.T) {
 	// prepare
-	db, err := sql.Open("sqlite", ":memory")
+	db, err := sql.Open("sqlite", ":memory:?cache=shared")
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -171,16 +172,13 @@ func TestGetByClient(t *testing.T) {
 
 	// get by client
 	storedParcels, err := store.GetByClient(client)
-	require.NoError(t, err)
-	require.Equal(t, len(parcels), len(storedParcels))
+	assert.NoError(t, err)
+	assert.Len(t, storedParcels, len(parcels))
 
 	// check
 	for _, parcel := range storedParcels {
 		original, exists := parcelMap[parcel.Number]
-		require.True(t, exists)
-		require.Equal(t, original.Client, parcel.Client)
-		require.Equal(t, original.Status, parcel.Status)
-		require.Equal(t, original.Address, parcel.Address)
-		require.Equal(t, original.CreatedAt, parcel.CreatedAt)
+		assert.True(t, exists)
+		assert.Equal(t, original, parcel)
 	}
 }

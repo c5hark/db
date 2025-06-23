@@ -51,7 +51,7 @@ func (s ParcelStore) Get(number int) (Parcel, error) {
 		} else {
 			log.Printf("Get:failed to scan parcel %d: %v", number, err)
 		}
-		return p, err
+		return Parcel{}, err
 	}
 	return p, nil
 }
@@ -98,45 +98,49 @@ func (s ParcelStore) SetStatus(number int, status string) error {
 }
 
 func (s ParcelStore) SetAddress(number int, address string) error {
-	parcel, err := s.Get(number)
-	if err != nil {
-		log.Printf("SetAddress: failed to get parcel %d: %v", number, err)
-		return err
-	}
-
-	if parcel.Status != ParcelStatusRegistered {
-		log.Printf("SetAddress: parcel %d is not in registered status, current: %v", number, parcel)
-		return errors.New("the address can only be changed for a registered parcel")
-	}
-	_, err = s.db.Exec(
-		"UPDATE parcel SET address = :address WHERE number = :number",
+	res, err := s.db.Exec(
+		"UPDATE parcel SET address = :address WHERE number = :number AND status = :status",
 		sql.Named("address", address),
 		sql.Named("number", number),
+		sql.Named("status", ParcelStatusRegistered),
 	)
 	if err != nil {
 		log.Printf("SetAddress: failed to update parcel %d: %v", number, err)
 	}
 	return err
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("SetAddress: failed to get rows affected for parcel %d: %v", number, err)
+		return err
+	}
+	if rowsAffected == 0 {
+		log.Printf("SetAddress: no rows affected for parcel %d", number)
+		return errors.New("the address can only be changed for a registered parcel")
+	}
+	return nil
 }
 
 func (s ParcelStore) Delete(number int) error {
-	parcel, err := s.Get(number)
-	if err != nil {
-		log.Printf("Delete: failed to get parcel %d: %v", number, err)
-		return err
-	}
-
-	if parcel.Status != ParcelStatusRegistered {
-		log.Printf("Delete: parcel %d is not registered current status: :%s", number, parcel.Status)
-		return errors.New("only a registered parcel can be deleted")
-	}
-	_, err = s.db.Exec(
-		"DELETE FROM parcel WHERE number = :number", sql.Named("number", number))
-
+	res, err := s.db.Exec(
+		"DELETE FROM parcel WHERE number = :number AND status = :status",
+		sql.Named("number", number),
+		sql.Named("status", ParcelStatusRegistered),
+	)
 	if err != nil {
 		log.Printf("Delete: failed to delete parcel %d: %v", number, err)
 		return err
 	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("Delete: failed to get rows affected for parcel %d: %v", number, err)
+		return err
+	}
 
-	return err
+	if rowsAffected == 0 {
+		log.Printf("Delete: no rows affected for parcel %d", number)
+		return errors.New("only a registered address can be deleted")
+	}
+
+	return nil
 }
